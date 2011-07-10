@@ -6,6 +6,7 @@ import re
 import simplejson
 import sqlite3
 import sys
+import time
 import urllib
 from xml.dom import minidom
 
@@ -116,23 +117,37 @@ def parse(s):
     conn.commit()
     conn.close()
 
-def scrape(n):
-    response = urllib.urlopen("http://search1.mapabc.com/sisserver?highLight=false&config=BusLine&ver=2.0&busName=929&cityCode=010&enc=utf-8&resType=json&resData=1&a_k=fd9451c6128710ffbc37d9481b002ff36665d039ee0febfd85df0ad471ebcf9204192849326faba3&number=20&batch=1&ctx=117314" % n)
-    s = response.read()
-    response.close()
-    parse(s)
+def scrape(n, name):
+    page = 1
+    page_size = 20
+    while True:
+        print name, page
+        url = "http://search1.mapabc.com/sisserver?config=BusLine&enc=utf-8&cityCode=010&busName=%s&batch=%s&pageSum=1&number=%s&webname=api.mapabc.com&skey=43FC0BC27C18FA7E6A18C077F844D8A7&resType=json&flag=1&ctx=1833251&a_nocache=115502301144&ver=2.0"
+        url = "http://search1.mapabc.com/sisserver?highLight=false&config=BusLine&ver=2.0&busName=%s&cityCode=010&enc=utf-8&resType=json&resData=1&a_k=fd9451c6128710ffbc37d9481b002ff36665d039ee0febfd85df0ad471ebcf9204192849326faba3&batch=%s&number=%s&ctx=1532742"
+        response = urllib.urlopen(url % (n, page, page_size))
+        s = response.read()
+        response.close()
+        json = s[s.index("{"):s.rindex("}")+1]
+        response = simplejson.loads(json)
+        count = int(response['count'])
+        with file("scrape/%s-%02d.json" % (name, page), "w") as f:
+            f.write(json)
+        if count <= page * page_size:
+            break
+        page += 1
+        time.sleep(10)
 
 if __name__ == '__main__':
     if len(sys.argv) == 2:
         arg = sys.argv[1]
         if arg == "ditie":
-            scrape("地铁")
+            scrape("地铁", "ditie")
         elif arg == "jichang":
-            scrape("机场")
+            scrape("机场", "jichang")
         else:
-            scrape(int(arg))
+            scrape(int(arg), "%03d" % int(arg))
     elif len(sys.argv) == 3:
         for i in range(int(sys.argv[1]), int(sys.argv[2]) + 1):
             print "%s" % i
-            scrape(i)
+            scrape(i, "%03d" % i)
 
